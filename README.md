@@ -55,7 +55,9 @@ dan pipeline GitHub Actions yang otomatis menjalankan test setiap push / pull re
 - *Response time* (< `max_response_time`, default 3000 ms) dan *Content-Type JSON* → di tab
   **Tests level collection**, jadi otomatis berlaku untuk SEMUA request.
   Ubah batasnya di variable collection `max_response_time` (misal `2000`).
-  Default dibuat 3000 ms karena login kadang ±1,6 detik dan runner GitHub bisa lebih lambat.
+  Default dibuat 3000 ms karena login kadang ±1,6 detik. Di CI batasnya dinaikkan ke **5000 ms**
+  (`--env-var "max_response_time=5000"`) karena runner GitHub ada di Amerika sehingga request lebih
+  lambat; tanpa ini pipeline sempat gagal acak karena response time > 3000 ms.
 
 ### Struktur request/response API (sudah dicek langsung)
 

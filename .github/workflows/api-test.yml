@@ -26,6 +26,8 @@ jobs:
 
       # Kredensial diambil dari GitHub Secrets, lalu dikirim ke newman via --env-var.
       # Newman exit code 1 kalau ada assertion gagal -> step ini merah -> job gagal.
+      # max_response_time dinaikkan ke 5000 ms karena runner GitHub (US) lebih jauh
+      # dari server API; di lokal tetap 3000 ms (nilai collection variable).
       - name: Run collection + CSV data-driven
         env:
           LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
@@ -43,6 +45,7 @@ jobs:
             --env-var "admin_password=$ADMIN_PASSWORD" \
             --env-var "locked_email=$LOCKED_EMAIL" \
             --env-var "locked_password=$LOCKED_PASSWORD" \
+            --env-var "max_response_time=5000" \
             -r cli,htmlextra \
             --reporter-htmlextra-export reports/api-test-report.html \
             --reporter-htmlextra-title "Script Labs API Test Report"
