@@ -284,10 +284,16 @@ Simpan di folder `docs/screenshots/` lalu tampilkan di bawah ini.
 
 ### Hasil
 
-| Bukti | Screenshot |
-|---|---|
-| Actions hijau | ![actions-green](docs/screenshots/01-actions-green.png) |
-| PR gatekeeper merah | ![gatekeeper-red](docs/screenshots/03-gatekeeper-red.png) |
-| PR kembali hijau | ![gatekeeper-green](docs/screenshots/05-gatekeeper-green.png) |
-| Branch protection | ![branch-protection](docs/screenshots/06-branch-protection.png) |
-| Report artifact | ![report](docs/screenshots/07-report-artifact.png) |
+**Actions hijau** – run `API Test` di `main`, job *Newman API Test* sukses
+
+![actions-green](docs/screenshots/01-actions-green.png)
+
+**Branch protection** – rule untuk branch `main` sudah dibuat
+
+![branch-protection](docs/screenshots/06-branch-protection.png)
+
+**PR gatekeeper merah** – _menyusul_
+
+**PR kembali hijau** – _menyusul_
+
+**Report artifact** – _menyusul_
