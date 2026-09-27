@@ -1,0 +1,10 @@
+# Environment berisi kredensial ASLI -> jangan di-commit
+# (file contoh *.example.json tetap ikut di-commit)
+postman/*.postman_environment.json
+
+# Hasil report newman
+reports/
+newman/
+
+node_modules/
+.DS_Store

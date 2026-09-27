@@ -1,0 +1,57 @@
+name: API Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # tombol "Run workflow" manual di tab Actions
+
+jobs:
+  api-test:
+    name: Newman API Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install newman + htmlextra reporter
+        run: npm install -g newman newman-reporter-htmlextra
+
+      # Kredensial diambil dari GitHub Secrets, lalu dikirim ke newman via --env-var.
+      # Newman exit code 1 kalau ada assertion gagal -> step ini merah -> job gagal.
+      - name: Run collection + CSV data-driven
+        env:
+          LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          LOCKED_EMAIL: ${{ secrets.LOCKED_EMAIL }}
+          LOCKED_PASSWORD: ${{ secrets.LOCKED_PASSWORD }}
+        run: |
+          newman run postman/labs-api.postman_collection.json \
+            -d data/labs-data.csv \
+            --env-var "login_email=$LOGIN_EMAIL" \
+            --env-var "login_password=$LOGIN_PASSWORD" \
+            --env-var "admin_email=$ADMIN_EMAIL" \
+            --env-var "admin_password=$ADMIN_PASSWORD" \
+            --env-var "locked_email=$LOCKED_EMAIL" \
+            --env-var "locked_password=$LOCKED_PASSWORD" \
+            -r cli,htmlextra \
+            --reporter-htmlextra-export reports/api-test-report.html \
+            --reporter-htmlextra-title "Script Labs API Test Report"
+
+      # if: always() -> report tetap di-upload walau test gagal (justru paling dibutuhkan)
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-report
+          path: reports/api-test-report.html
+          retention-days: 14

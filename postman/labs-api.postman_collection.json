@@ -1,0 +1,832 @@
+{
+  "info": {
+    "name": "Script Labs API Testing",
+    "description": "Final assignment API testing untuk https://labs.hendri.me (API: https://api-script-labs.hendri.me).\nKredensial diambil dari environment (lokal) atau --env-var (CI), tidak di-hardcode.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ===== Test level COLLECTION: otomatis jalan di SETIAP request =====",
+          "// Batas response time bisa diubah lewat variable max_response_time",
+          "const maxTime = Number(pm.variables.get(\"max_response_time\") || 3000);",
+          "pm.test(\"Response time < \" + maxTime + \" ms\", () => {",
+          "    pm.expect(pm.response.responseTime).to.be.below(maxTime);",
+          "});",
+          "// Semua response API ini berformat JSON",
+          "pm.test(\"Content-Type berformat JSON\", () => {",
+          "    pm.response.to.have.header(\"Content-Type\");",
+          "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api-script-labs.hendri.me"
+    },
+    {
+      "key": "max_response_time",
+      "value": "3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "lab_id",
+      "value": ""
+    },
+    {
+      "key": "lab_title",
+      "value": ""
+    },
+    {
+      "key": "lab_description",
+      "value": ""
+    },
+    {
+      "key": "lab_title_updated",
+      "value": ""
+    },
+    {
+      "key": "lab_description_updated",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Auth",
+      "description": "Login. Folder ini TANPA auth karena token belum ada.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Login - Valid (Standard User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Status 200 = login berhasil",
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "// Cek struktur body: success, data.token, data.user",
+                  "pm.test(\"Body: success = true & message benar\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.message).to.eql(\"Login successful\");",
+                  "});",
+                  "pm.test(\"Body: token berupa string (JWT) dan tidak kosong\", () => {",
+                  "    pm.expect(json.data.token).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.data.token.split(\".\")).to.have.lengthOf(3); // JWT = 3 bagian",
+                  "});",
+                  "pm.test(\"Body: email user sama dengan email yang dikirim\", () => {",
+                  "    pm.expect(json.data.user.email).to.eql(pm.variables.get(\"login_email\"));",
+                  "    pm.expect(json.data.user.role).to.eql(\"user\");",
+                  "    pm.expect(json.data.user.status).to.eql(\"active\");",
+                  "});",
+                  "",
+                  "// SIMPAN TOKEN ke collection variable -> dipakai otomatis oleh",
+                  "// Authorization: Bearer {{token}} di level collection",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"token\", json.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login_email}}\",\n  \"password\": \"{{login_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Valid (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = true & token ada\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.data.token).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "// Poin penting akun admin: role harus \"admin\"",
+                  "pm.test(\"Body: role = admin\", () => {",
+                  "    pm.expect(json.data.user.email).to.eql(pm.variables.get(\"admin_email\"));",
+                  "    pm.expect(json.data.user.role).to.eql(\"admin\");",
+                  "});",
+                  "// Token admin TIDAK disimpan -> semua CRUD tetap memakai token standard user"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Negative (Wrong Password)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Password salah -> 401 Unauthorized",
+                  "pm.test(\"Status code 401\", () => pm.response.to.have.status(401));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = false & code AUTH_FAILED\", () => {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.error.code).to.eql(\"AUTH_FAILED\");",
+                  "    pm.expect(json.error.message).to.eql(\"Invalid email or password\");",
+                  "});",
+                  "pm.test(\"Body: tidak ada token\", () => {",
+                  "    pm.expect(json).to.not.have.property(\"data\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login_email}}\",\n  \"password\": \"wrong_password_123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Negative (Locked User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Akun terkunci -> 403 Forbidden",
+                  "pm.test(\"Status code 403\", () => pm.response.to.have.status(403));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = false & code USER_LOCKED\", () => {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.error.code).to.eql(\"USER_LOCKED\");",
+                  "    pm.expect(json.error.message).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{locked_email}}\",\n  \"password\": \"{{locked_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Labs CRUD",
+      "description": "Alur CRUD lengkap. Auth diwarisi dari collection (Bearer {{token}}).",
+      "item": [
+        {
+          "name": "Get All Labs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = true & data berupa array\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.data).to.be.an(\"array\");",
+                  "});",
+                  "// Cek tipe data setiap item (kalau list tidak kosong)",
+                  "pm.test(\"Body: setiap item punya id (number), title & description (string)\", () => {",
+                  "    json.data.forEach((lab) => {",
+                  "        pm.expect(lab.id).to.be.a(\"number\");",
+                  "        pm.expect(lab.title).to.be.a(\"string\");",
+                  "        pm.expect(lab.description).to.be.a(\"string\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lab",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Buat title unik (pakai timestamp) supaya tiap run tidak bentrok",
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set(\"lab_title\", \"QA Automation Lab \" + ts);",
+                  "pm.collectionVariables.set(\"lab_description\", \"Dibuat otomatis oleh Postman/Newman \" + ts);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 201 Created = data berhasil dibuat",
+                  "pm.test(\"Status code 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = true & message benar\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.message).to.eql(\"Lab added successfully\");",
+                  "});",
+                  "pm.test(\"Body: id berupa number\", () => {",
+                  "    pm.expect(json.data.id).to.be.a(\"number\");",
+                  "});",
+                  "// Nilai yang dikembalikan harus SAMA dengan yang dikirim",
+                  "pm.test(\"Body: title & description sesuai input\", () => {",
+                  "    pm.expect(json.data.title).to.eql(pm.collectionVariables.get(\"lab_title\"));",
+                  "    pm.expect(json.data.description).to.eql(pm.collectionVariables.get(\"lab_description\"));",
+                  "});",
+                  "",
+                  "// SIMPAN ID -> dipakai di GET/PUT/DELETE berikutnya lewat {{lab_id}}",
+                  "pm.collectionVariables.set(\"lab_id\", json.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{lab_title}}\",\n  \"description\": \"{{lab_description}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Lab Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: id sama dengan lab_id yang dibuat\", () => {",
+                  "    pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get(\"lab_id\")));",
+                  "});",
+                  "pm.test(\"Body: title & description sama dengan saat create\", () => {",
+                  "    pm.expect(json.data.title).to.eql(pm.collectionVariables.get(\"lab_title\"));",
+                  "    pm.expect(json.data.description).to.eql(pm.collectionVariables.get(\"lab_description\"));",
+                  "});",
+                  "pm.test(\"Body: created_at & updated_at berupa string tanggal\", () => {",
+                  "    pm.expect(json.data.created_at).to.be.a(\"string\");",
+                  "    pm.expect(json.data.updated_at).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs",
+                "{{lab_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Lab",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Siapkan title & description baru untuk update",
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set(\"lab_title_updated\", \"QA Automation Lab UPDATED \" + ts);",
+                  "pm.collectionVariables.set(\"lab_description_updated\", \"Deskripsi sudah di-update \" + ts);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = true & message benar\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.message).to.eql(\"lab updated successfully\");",
+                  "});",
+                  "pm.test(\"Body: id tidak berubah\", () => {",
+                  "    pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get(\"lab_id\")));",
+                  "});",
+                  "pm.test(\"Body: title & description berubah sesuai input baru\", () => {",
+                  "    pm.expect(json.data.title).to.eql(pm.collectionVariables.get(\"lab_title_updated\"));",
+                  "    pm.expect(json.data.description).to.eql(pm.collectionVariables.get(\"lab_description_updated\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs",
+                "{{lab_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{lab_title_updated}}\",\n  \"description\": \"{{lab_description_updated}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Lab",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = true & message benar\", () => {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.message).to.eql(\"lab deleted successfully\");",
+                  "});",
+                  "pm.test(\"Body: id yang dihapus = lab_id\", () => {",
+                  "    pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get(\"lab_id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs",
+                "{{lab_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Lab After Delete (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Data sudah dihapus -> harus 404 Not Found",
+                  "pm.test(\"Status code 404\", () => pm.response.to.have.status(404));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = false & pesan 'lab not found'\", () => {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.error.message).to.eql(\"lab not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs",
+                "{{lab_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 Negative Cases",
+      "item": [
+        {
+          "name": "Get All Labs Without Token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Tanpa token -> 401 Unauthorized",
+                  "pm.test(\"Status code 401\", () => pm.response.to.have.status(401));",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: pesan 'No token provided'\", () => {",
+                  "    pm.expect(json.message).to.eql(\"No token provided\");",
+                  "});",
+                  "pm.test(\"Body: tidak ada data lab yang bocor\", () => {",
+                  "    pm.expect(json).to.not.have.property(\"data\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lab Invalid Body - Missing Title (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Body tidak valid -> 400 Bad Request",
+                  "pm.test(\"Status code 400 atau 422\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Body: success = false & pesan validasi title\", () => {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.error.message).to.include(\"Title is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Tidak ada field title\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 Data Driven",
+      "description": "Jalankan dengan data/labs-data.csv (Collection Runner atau newman -d).",
+      "item": [
+        {
+          "name": "Create Lab - Data Driven (CSV)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Ambil data baris CSV yang sedang berjalan (pm.iterationData).",
+                  "// Kalau request dijalankan TANPA CSV (klik Send biasa), pakai data default",
+                  "// supaya tetap bisa jalan dan lulus.",
+                  "const fromCsv = pm.iterationData.has(\"scenario\");",
+                  "const title = fromCsv ? pm.iterationData.get(\"title\") : \"Default Lab Tanpa CSV\";",
+                  "const description = fromCsv ? pm.iterationData.get(\"description\") : \"Default description\";",
+                  "const expected = fromCsv ? pm.iterationData.get(\"expected_status\") : 201;",
+                  "",
+                  "// Body dibuat dengan JSON.stringify supaya karakter spesial (\" \\ dll.)",
+                  "// tetap menghasilkan JSON yang valid",
+                  "pm.variables.set(\"dd_body\", JSON.stringify({ title: title, description: description }));",
+                  "pm.variables.set(\"dd_title\", title);",
+                  "pm.variables.set(\"dd_description\", description);",
+                  "pm.variables.set(\"dd_expected\", Number(expected));",
+                  "pm.variables.set(\"dd_scenario\", fromCsv ? pm.iterationData.get(\"scenario\") : \"default_valid\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const scenario = pm.variables.get(\"dd_scenario\");",
+                  "const expected = Number(pm.variables.get(\"dd_expected\"));",
+                  "const json = pm.response.json();",
+                  "",
+                  "// Assertion DINAMIS: status yang diharapkan diambil dari kolom expected_status CSV",
+                  "pm.test(\"[\" + scenario + \"] Status code = \" + expected, () => {",
+                  "    pm.response.to.have.status(expected);",
+                  "});",
+                  "",
+                  "if (expected === 201) {",
+                  "    // Skenario valid/edge yang diterima: data tersimpan sesuai input",
+                  "    pm.test(\"[\" + scenario + \"] Body: data tersimpan sesuai input\", () => {",
+                  "        pm.expect(json.success).to.eql(true);",
+                  "        pm.expect(json.data.id).to.be.a(\"number\");",
+                  "        pm.expect(json.data.title).to.eql(pm.variables.get(\"dd_title\"));",
+                  "        pm.expect(json.data.description).to.eql(pm.variables.get(\"dd_description\"));",
+                  "    });",
+                  "} else {",
+                  "    // Skenario invalid: harus ditolak dengan pesan error validasi",
+                  "    pm.test(\"[\" + scenario + \"] Body: success = false & ada pesan error\", () => {",
+                  "        pm.expect(json.success).to.eql(false);",
+                  "        pm.expect(json.error.message).to.be.a(\"string\").and.include(\"Validation Error\");",
+                  "    });",
+                  "}",
+                  "",
+                  "// Bersihkan data test supaya tidak menumpuk di akun.",
+                  "// Pakai status AKTUAL (bukan expected) supaya tetap terhapus walau test-nya gagal.",
+                  "if (pm.response.code === 201 && json.data && json.data.id) {",
+                  "    pm.sendRequest({",
+                  "        url: pm.variables.get(\"base_url\") + \"/api/labs/\" + json.data.id,",
+                  "        method: \"DELETE\",",
+                  "        header: { Authorization: \"Bearer \" + pm.collectionVariables.get(\"token\") }",
+                  "    }, (err, res) => {",
+                  "        pm.test(\"[\" + scenario + \"] Cleanup: data test berhasil dihapus\", () => {",
+                  "            pm.expect(err).to.eql(null);",
+                  "            pm.expect(res.code).to.eql(200);",
+                  "        });",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "labs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{dd_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
