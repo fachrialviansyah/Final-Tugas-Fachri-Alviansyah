@@ -292,7 +292,9 @@ Simpan di folder `docs/screenshots/` lalu tampilkan di bawah ini.
 
 ![branch-protection](docs/screenshots/06-branch-protection.png)
 
-**PR gatekeeper merah** – _menyusul_
+**PR gatekeeper merah** – `expected_status` sengaja diubah 201 → 200, check *Newman API Test* gagal, merge diblokir
+
+![gatekeeper-red](docs/screenshots/03-gatekeeper-red.png)
 
 **PR kembali hijau** – _menyusul_
 
